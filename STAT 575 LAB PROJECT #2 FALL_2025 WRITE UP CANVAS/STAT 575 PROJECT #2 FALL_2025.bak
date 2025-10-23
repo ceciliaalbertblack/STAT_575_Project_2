@@ -1,0 +1,317 @@
+%% This document created by Scientific Notebook (R) Version 3.0
+%\usepackage{sw20jart}
+%\input{tcilatex}
+%\input{tcilatex}
+%\input{tcilatex}
+
+
+\documentclass[12pt,thmsa]{article}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{amsmath}
+\usepackage{eurosym}
+
+\setcounter{MaxMatrixCols}{10}
+%TCIDATA{TCIstyle=article/art4.lat,jart,sw20jart}
+
+%TCIDATA{OutputFilter=Latex.dll}
+%TCIDATA{Version=5.00.0.2552}
+%TCIDATA{<META NAME="SaveForMode" CONTENT="1">}
+%TCIDATA{Created=Mon Aug 19 14:52:24 1996}
+%TCIDATA{LastRevised=Thursday, October 23, 2025 01:38:11}
+%TCIDATA{<META NAME="GraphicsSave" CONTENT="32">}
+%TCIDATA{Language=American English}
+%TCIDATA{CSTFile=Exam.cst}
+%TCIDATA{PageSetup=72,72,72,72,0}
+%TCIDATA{Counters=arabic,1}
+%TCIDATA{<META NAME="PrintOptions" CONTENT="32">}
+%TCIDATA{AllPages=
+%H=36
+%F=36,\PARA{038<p type="texpara" tag="Body Text" >\hfill \thepage}
+%}
+
+
+\input{tcilatex}
+
+\begin{document}
+
+
+\begin{tabular}{l}
+Prof. H. Bozdogan \ \ \  \\ 
+Stat-575: Time Series Analysis%
+\end{tabular}
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ 
+\begin{tabular}{l}
+FALL Semester: Oct. 23, 2025 \\ 
+Due on or before Friday Nov. 4, 2025%
+\end{tabular}
+
+\smallskip
+
+\section{ \ \ \ PROJECT \#2 \ TIME SERIES REGRESSION MODEL}
+
+\smallskip
+
+\subsubsection{INSTRUCTIONS:}
+
+\smallskip
+
+\begin{itemize}
+\item Please SHOW ALL YOUR WORK ON SEPARATE PAGES FOR EACH PROBLEM. Please
+submit your write up, computational modules and all your graphs with the
+
+codes in A ZIPPED FILE such as JOHN\_DOE\_STAT575\_Proj\#2.zip to CANVAS.
+\end{itemize}
+
+\smallskip
+
+\begin{itemize}
+\item You can use any computational software such as Matlab, R, JMP, Python,
+and SAS to be able to answer the following questions.
+\end{itemize}
+
+\vspace{1pt}
+
+\subsubsection{OBJECTIVE}
+
+\vspace{1pt}
+
+The purpose of this project is to analyze a self-selected \textbf{time
+series regression dataset} and to perform \textbf{subset selection of
+predictor variables} using advanced covariance estimation methods. Students
+will estimate models using heteroskedasticity- and
+autocorrelation-consistent (HAC) covariance estimators and compare model
+performance using three information-theoretic criteria: 
+\begin{equation*}
+\text{AIC},\quad \text{SBC (BIC)},\quad \text{and CICOMP (Consistent
+Information Complexity)}.
+\end{equation*}
+
+Many time series data sets typically contains autocorrelation and/or
+heteroskedasticity of unknown form and for statistical inference to model
+such data sets it is essential to use \textsl{covariance matrix estimators}
+that can consistently estimate the covariance of the model parameters. For
+this reason, in the literature, there are several suitable \textsl{%
+heteroskedasticity consistent} (\textsl{HC}) and \textsl{heteroskedasticity
+and autocorrelation consistent} (\textsl{HAC}) \textsl{estimators} have been
+proposed over the last 20 years.
+
+\vspace{1pt}
+
+\subsubsection{Dataset Requirements}
+
+\vspace{1pt}
+
+Each student must provide or construct their own dataset satisfying:
+
+\vspace{1pt}
+
+\begin{itemize}
+\item The dataset must be in either \texttt{.csv} or \texttt{.xlsx} format.
+
+\item It should include a numeric response variable $y_{t}$ (time series)
+and a model matrix $\mathbf{X}_{t}$ of predictor variables.
+
+\item The number of predictors must not exceed $k=10$.
+
+\item The number of observations $n$ should be sufficiently large ($n>k$) to
+estimate all candidate models.
+
+\item Variables should be labeled clearly and described in a summary table
+(see Table~below).
+\end{itemize}
+
+\vspace{1pt}\pagebreak
+
+\section*{Modeling Framework}
+
+\vspace{1pt}
+
+You will fit the time series regression model 
+\begin{equation*}
+y_{t}=\beta _{0}+\sum_{j=1}^{p}\beta _{j}x_{tj}+\varepsilon _{t},\qquad
+\varepsilon _{t}\sim \mathcal{N}(0,\sigma ^{2}),
+\end{equation*}%
+and estimate the covariance of the OLS coefficient vector $\hat{\beta}$
+using a HAC estimator: 
+\begin{equation*}
+\text{Cov}_{\text{HAC}}=\hat{\Sigma}_{\text{HAC}}(w),
+\end{equation*}%
+where $w(\cdot )$ is the kernel weight function: 
+\begin{equation*}
+\text{Kernel}\in \{\text{TR},\text{BT},\text{PZ},\text{TH},\text{QS}\}.
+\end{equation*}%
+Here TR = Tukey, BT = Bartlett, PZ = Parzen, TH = Tukey\^{a}\euro
+\textquotedblleft Hanning, and QS = Quadratic Spectral.
+
+\vspace{1pt}
+
+\textbf{Implementation Requirement:} Each student must use the provided
+MATLAB module:
+
+\begin{quote}
+\texttt{dr\_TS\_AllSubsets\_HAC\_TOP\_EXPORT.m}
+\end{quote}
+
+to analyze their own dataset. This script will:
+
+\begin{itemize}
+\item Enumerate all possible subsets of predictors ($2^{p}$ models, $p\leq
+10 $);
+
+\item Fit each subset model via OLS and compute HAC covariance matrices;
+
+\item Calculate AIC, SBC, and CICOMP for each subset;
+
+\item Export a \texttt{.csv}, \texttt{.tex}, and \texttt{.rtf} summary of
+the best model(s);
+
+\item Generate comparative plots illustrating model complexity vs.
+information criterion.
+
+\item Which Kernel Covariance is the best choice for your dataset? Hint: You
+can compare the score of the criteria on all the variables, saturated model.
+\end{itemize}
+
+\vspace{1pt}
+
+\section*{Information Criteria}
+
+\vspace{1pt}
+
+For each subset model, compute the following: 
+\begin{align*}
+AIC& =n\log (2\pi )+n\log (\hat{\sigma}^{2})+n+2k, \\
+SBC& =n\log (2\pi )+n\log (\hat{\sigma}^{2})+n+k\log n, \\
+CICOMP& =n\log (2\pi )+n\log (\hat{\sigma}^{2})+n+k+2\log (n)C_{1F},
+\end{align*}%
+where $C_{1F}$ is the covariance complexity term derived from the
+eigenvalues $\lambda _{1},\dots ,\lambda _{k}$ of the HAC covariance matrix
+of $\hat{\beta}$: 
+\begin{equation*}
+C_{1F}=\frac{1}{4\bar{\lambda}^{2}}\sum_{i=1}^{k}(\lambda _{i}-\bar{\lambda}%
+)^{2},\qquad \bar{\lambda}=\frac{1}{k}\sum_{i=1}^{k}\lambda _{i}.
+\end{equation*}
+
+\pagebreak
+
+\section{Deliverables}
+
+\vspace{1pt}
+
+Each student must submit a concise technical report containing:
+
+\begin{enumerate}
+\item \textbf{Introduction and Data Description}
+
+\begin{itemize}
+\item Dataset source and description;
+
+\item Table of variables (see example below);
+
+\item Summary statistics and exploratory plots.
+\end{itemize}
+
+\item \textbf{Modeling and Results}
+
+\begin{itemize}
+\item Output from the module \texttt{dr\_TS\_AllSubsets\_HAC\_TOP\_EXPORT.m};
+
+\item Tables of the best subsets under AIC, SBC, and CICOMP;
+
+\item Visual comparison of each criterion across subset sizes.
+\end{itemize}
+
+\item \textbf{Discussion and Conclusions}
+
+\begin{itemize}
+\item Comparison among AIC, SBC, and CICOMP results;
+
+\item Discussion of model parsimony and covariance complexity;
+
+\item Insights into the predictive and structural properties of the selected
+models.
+\end{itemize}
+\end{enumerate}
+
+\section*{Example Variable Table}
+
+\vspace{1pt}
+
+\begin{tabular}{lll}
+\textbf{Variable} & \textbf{Description} & \textbf{Type / Unit} \\ 
+$y_{t}$ & Monthly retail sales & Thousands USD \\ 
+$x_{1t}$ & Consumer confidence index & Index (0\^{a}\euro \textquotedblleft
+100) \\ 
+$x_{2t}$ & Average temperature & \^{A}%
+%TCIMACRO{\U{b0}}%
+%BeginExpansion
+${{}^\circ}$%
+%EndExpansion
+C \\ 
+$x_{3t}$ & Unemployment rate & \% \\ 
+$x_{4t}$ & Average gasoline price & USD per gallon%
+\end{tabular}
+
+\vspace{1pt}
+
+\section*{Submission Format}
+
+\vspace{1pt}
+
+\begin{itemize}
+\item Submit one compressed folder (\texttt{.zip}) containing:
+
+\begin{itemize}
+\item Your dataset (\texttt{.csv} or \texttt{.xlsx});
+
+\item MATLAB code and output files from \texttt{dr\_TS\_AllSubsets\_HAC\_TOP%
+\_EXPORT.m};
+
+\item Exported \texttt{.csv}, \texttt{.tex}, and \texttt{.rtf} tables;
+
+\item Final report in \texttt{.pdf} format (compiled from LaTeX or using MS
+Word).
+\end{itemize}
+\end{itemize}
+
+\vspace{1pt}
+
+\begin{itemize}
+\item Include your name, course title, and date on the report title page.
+\end{itemize}
+
+\vspace{1pt}
+
+\section*{Grading Rubric (100 points total)}
+
+\vspace{1pt}
+
+\begin{tabular}{lcc}
+\textbf{Component} & \textbf{Description} & \textbf{Points} \\ 
+Data Description & Dataset quality, variable documentation & 25 \\ 
+Modeling and Computation & Proper use of HAC module and criteria & 40 \\ 
+Analysis and Interpretation & Discussion, model comparison, reasoning & 25
+\\ 
+Report Format & Clarity, tables, plots, and LaTeX quality & 10 \\ 
+\textbf{Total} &  & \textbf{100}%
+\end{tabular}
+
+\vspace{1pt}
+
+\begin{center}
+\textit{This project applies Bozdogan's Information Complexity (ICOMP)
+framework to time series regression, illustrating the role of covariance
+regularization and model parsimony in modern model selection.}
+\end{center}
+
+\vspace{1pt}
+
+\begin{center}
+\begin{tabular}{|l|}
+\hline
+If you have any questions, please ask me and Haoqi our GTA. \\ \hline
+If you need more time, please let me know. \\ \hline
+\end{tabular}
+\end{center}
+
+\end{document}
