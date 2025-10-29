@@ -1,6 +1,7 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "STAT 575 Project #2"
+subtitle: "Cecilia Albert-Black 10/29/2025"
+output: pdf_document
 ---
 
 The objective of this project is to analyze a time series regression dataset and to perform a subset selection of predictor variables using advanced covariance estimation methods.
@@ -69,7 +70,7 @@ subset_long <- subset_daily_avg %>%
   mutate(Source = "Original")      # placeholder, can add "Interpolated" if you have that
 
 # Plot
-ggplot(subset_long, aes(x = Date, y = Value)) +
+variable_plots <- ggplot(subset_long, aes(x = Date, y = Value)) +
   geom_point(data = filter(subset_long, Source == "Original"), size = 1.5, alpha = 0.8) +
   # geom_line(data = filter(subset_long, Source == "Interpolated"), linewidth = 0.8) +
   facet_wrap(~ Variable, scales = "free_y", ncol = 2) +
@@ -90,9 +91,11 @@ ggplot(subset_long, aes(x = Date, y = Value)) +
     strip.text = element_text(face = "bold"),
     panel.grid.minor = element_blank(),
     axis.text.x = element_text(angle = 45, hjust = 1),
-    panel.spacing = unit(1.0, "lines")  # increases spacing between panels vertically
+    panel.spacing = unit(1.0, "lines")
   )
 
+# Export
+ggsave("Variable_plots.png", plot = variable_plots)
 ```
 
 The number of observations (n) is large, as shown below
@@ -108,9 +111,11 @@ Check for heteroskedasticity
 model <- lm(Meas_Zn_nM ~ Temp_C + pH + DOC_M + DIC_mM + Ca_uM + Mg_uM + Na_uM + K_uM + SO4_uM + Cl_uM, data = subset_daily_avg)
 
 # Base R diagnostic plot
-plot(model, which = 1)  
+diagnostic_plot <- plot(model, which = 1)  
 
-# generally homoscedastic with a couple outliers
+# View
+diagnostic_plot
+# Notes: generally homoscedastic with a couple outliers
 ```
 
 Summary table of variables
@@ -141,6 +146,10 @@ summary_table <- tibble(
 
 # View
 summary_table
+
+# Export
+library(writexl)
+write_xlsx(summary_table, path = "Summary_table_variables.xlsx")
 ```
 
 ### Translation of Matlab Code to R using ChatGPT
@@ -276,8 +285,11 @@ TopAll <- TopAll %>%
   select(Criterion, Size, Variables, Information_Criteria)
 
 # Print table
-print(TopAll, n = nrow(TopAll))
+ic_table <- print(TopAll, n = nrow(TopAll))
 
+# Export
+library(writexl)
+write_xlsx(ic_table, path = "Information_criteria_table.xlsx")
 ```
 
 ### Discussion and Conclusions
