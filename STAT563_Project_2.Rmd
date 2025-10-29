@@ -1,0 +1,299 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+The objective of this project is to analyze a time series regression dataset and to perform a subset selection of predictor variables using advanced covariance estimation methods.
+
+Here I will estimate models using heteroskedasticity- (HC) and autocorrelation-consistent (HAC) covariance estimators and compare model performance using three information-theoretic criteria: AIC, SBC (BIC), and CICOMP.
+
+Many time series data sets typically contain autocorrelation and/or heteroskedasticity of unknown form and, for statistical inference to model such data, it is essential to use covariance matrix estimators to estimate model parameters; in which case we use HC or HAC estimators.
+
+### Dataset
+
+The dataset used for this project is not publicly available since it is propertly of Oak Ridge National Laboratory. Therefore, I will only preview the data but not provide it in the submission of this project to the instructor.
+
+**Dataset details**: This dataset includes several stream measurements (e.g. temperature, pH, etc.) collected every couple minutes from 2023-10-20 to 2024-09-10.
+
+```{r}
+setwd("C:/Users/q4q/OneDrive - Oak Ridge National Laboratory/Research/Bioavailability Project/2. Time Series Analysis/STIC Sensor Data/Data Cleaning/Cubic Spline Interpolation Method")
+
+library(readxl)
+mca1_dat <- read_excel("mca1_bioavail_interpolation.xlsx")
+View(mca1_dat)
+str(mca1_dat)
+```
+
+Because I experienced difficulty in the run time of my data, I will decrease the temporal resolution to daily averages
+
+```{r}
+library(dplyr)
+library(lubridate)
+
+daily_avg <- mca1_dat %>%
+  mutate(Date = as.Date(DateTime)) %>%         # extract date
+  group_by(Site, Date) %>%                     # group by site and day
+  summarise(across(where(is.numeric), mean, na.rm = TRUE)) %>%  # daily means
+  ungroup()
+
+# Check result
+head(daily_avg)
+```
+
+I will select the response variable (measured Zinc) and its 10 predictors (temperature, pH, DOC , DIC, Ca, Mg, Na, K, SO4, Cl)
+
+```{r}
+library(dplyr)
+
+# Select variables
+subset_daily_avg <- daily_avg %>%
+  select(Date, Meas_Zn_nM, Temp_C, pH, DOC_M, DIC_mM, Ca_uM, Mg_uM, Na_uM, K_uM, 
+         SO4_uM, Cl_uM)
+
+# Preview
+head(subset_daily_avg)
+```
+
+Exploratory plots of each variable
+
+```{r}
+library(tidyverse)
+
+# Pivot only numeric columns
+subset_long <- subset_daily_avg %>%
+  pivot_longer(
+    cols = where(is.numeric),     # only numeric variables
+    names_to = "Variable",
+    values_to = "Value"
+  ) %>%
+  mutate(Source = "Original")      # placeholder, can add "Interpolated" if you have that
+
+# Plot
+ggplot(subset_long, aes(x = Date, y = Value)) +
+  geom_point(data = filter(subset_long, Source == "Original"), size = 1.5, alpha = 0.8) +
+  # geom_line(data = filter(subset_long, Source == "Interpolated"), linewidth = 0.8) +
+  facet_wrap(~ Variable, scales = "free_y", ncol = 2) +
+  scale_x_date(
+    date_breaks = "1 month",
+    date_labels = "%b\n%Y"
+  ) +
+  labs(
+    x = "Date",
+    y = "Value",
+    color = "Data Source",
+    title = "Daily Averages of Bioavailable Variables"
+  ) +
+  theme_bw(base_size = 11) +
+  theme(
+    legend.position = "top",
+    strip.background = element_rect(fill = "gray90"),
+    strip.text = element_text(face = "bold"),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.spacing = unit(1.0, "lines")  # increases spacing between panels vertically
+  )
+
+```
+
+The number of observations (n) is large, as shown below
+
+```{r}
+n <- length(subset_daily_avg$Date)
+n
+```
+
+Check for heteroskedasticity
+
+```{r}
+model <- lm(Meas_Zn_nM ~ Temp_C + pH + DOC_M + DIC_mM + Ca_uM + Mg_uM + Na_uM + K_uM + SO4_uM + Cl_uM, data = subset_daily_avg)
+
+# Base R diagnostic plot
+plot(model, which = 1)  
+
+# generally homoscedastic with a couple outliers
+```
+
+Summary table of variables
+
+```{r}
+# Remove date column
+subset_daily_avg$Date <- NULL
+
+library(tibble)
+
+summary_table <- tibble(
+  Variable = c("y_t", "x_1t", "x_2t", "x_3t", "x_4t", "x_5t", "x_6t",
+               "x_7t", "x_8t", "x_9t", "x_10t"),
+  ID = colnames(subset_daily_avg),
+  Description = c("Measured Zinc",
+                  "Temp",
+                  "pH",
+                  "Dissolved organic carbon",
+                  "Dissolved inrganic carbon",
+                  "Calcium",
+                  "Magnesium",
+                  "Sodium",
+                  "Potassium",
+                  "Sulfate",
+                  "Chloride"),
+  Unit = c("uM", "Celsius", "", "M", "mM", "uM", "uM", "uM", "uM", "uM", "uM")
+)
+
+# View
+summary_table
+```
+
+### Translation of Matlab Code to R using ChatGPT
+
+In this section I had chatGPT translate the Matlab module given by the instructor into R code.
+
+This section will
+
+-   Enumerate all possible subsets of predictors (2\^p models, p \<= 10);
+
+-   Fit each subset model via OLS and compute HAC covariance matrices;
+
+-   Calculate AIC, SBC, and CICOMP for each subset;
+
+-   Export a .csv, .tex, and .rtf summary of the best model(s);
+
+-   Generate comparative plots illustrating model complexity vs. information criterion.
+
+-   Which Kernel Covariance is the best choice for your dataset? Hint: You can compare the score of the criteria on all the variables, saturated model.
+
+```{r}
+library(tidyverse)
+library(combinat)  # for generating all subsets
+library(sandwich)  # HAC covariance
+library(lmtest)    # coeftest
+
+# ---------------- User controls ----------------
+data <- subset_daily_avg
+y_var <- "Meas_Zn_nM"
+predictors <- setdiff(colnames(data), y_var)  # exclude response
+addIntercept <- TRUE
+topN <- 1
+hacLag <- NULL     # auto lag if NULL
+
+# ---------------- Enumerate all subsets ----------------
+p <- length(predictors)
+all_subsets <- unlist(lapply(0:p, function(k) combn(p, k, simplify=FALSE)), recursive=FALSE)
+
+results <- vector("list", length(all_subsets))
+T_obs <- nrow(data)
+hacLag_auto <- ifelse(is.null(hacLag), floor(4*(T_obs/100)^(2/9)), hacLag)
+
+for(i in seq_along(all_subsets)){
+  idx <- all_subsets[[i]]
+  X_vars <- predictors[idx]
+  
+  formula_str <- if(length(X_vars)==0) paste0(y_var," ~ 1") else paste0(y_var," ~ ",paste(X_vars,collapse="+"))
+  fit <- lm(as.formula(formula_str), data=data)
+  
+  # ---------------- HAC covariance ----------------
+  cov_HAC <- tryCatch({
+    sandwich::vcovHAC(fit, prewhite=FALSE, adjust=TRUE)
+  }, error=function(e) vcov(fit))  # fallback to standard covariance
+  
+  # ---------------- Residual variance ----------------
+  e <- resid(fit)
+  sig2 <- sum(e^2)/T_obs
+  k <- length(coef(fit))
+  
+  # ---------------- AIC / BIC ----------------
+  AICv <- AIC(fit)
+  BICv <- BIC(fit)
+  
+  # ---------------- CIC metric ----------------
+  ev <- eigen(cov_HAC, symmetric=TRUE, only.values=TRUE)$values
+  evbar <- mean(ev)
+  if(!is.finite(evbar) || evbar <= 0) evbar <- mean(ev[ev>0])
+  C1F <- (1/(4*(evbar^2))) * sum((ev - evbar)^2)
+  CICv <- T_obs*log(2*pi) + T_obs*log(max(sig2, .Machine$double.eps)) + T_obs + k + 2*log(T_obs)*C1F
+  
+  results[[i]] <- tibble(
+    Size = length(X_vars),
+    Indices = if(length(X_vars)==0) "" else paste(X_vars, collapse=","),
+    AIC = AICv,
+    BIC = BICv,
+    CICOMP = CICv
+  )
+  
+  if(i %% 100 == 0) message("Processed subset ", i, " / ", length(all_subsets))
+}
+
+res_df <- bind_rows(results)
+
+# ---------------- Top-N subsets ----------------
+TopAIC  <- res_df %>% arrange(AIC) %>% slice(1:topN)
+TopBIC  <- res_df %>% arrange(BIC) %>% slice(1:topN)
+TopCIC  <- res_df %>% arrange(CICOMP) %>% slice(1:topN)
+
+# ---------------- Export CSV ----------------
+write_csv(res_df, paste0("ALL_SUBSETS_HAC_", Sys.Date(), ".csv"))
+write_csv(bind_rows(
+  TopAIC %>% mutate(Criterion="AIC"),
+  TopBIC %>% mutate(Criterion="BIC"),
+  TopCIC %>% mutate(Criterion="CICOMP")
+), paste0("TOP_SUBSETS_HAC_", Sys.Date(), ".csv"))
+
+# ---------------- Quick bar plot ----------------
+best_vals <- c(AIC=TopAIC$AIC[1], BIC=TopBIC$BIC[1], CICOMP=TopCIC$CICOMP[1])
+barplot(best_vals, main="Best-by-criterion (HAC)",
+        ylab="Criterion value", col=c("skyblue","orange","green"))
+
+# ---------------- Trajectories vs model size ----------------
+sz <- 0:p
+bestBySize_AIC <- sapply(sz, function(m) min(res_df$AIC[res_df$Size==m], na.rm=TRUE))
+bestBySize_BIC <- sapply(sz, function(m) min(res_df$BIC[res_df$Size==m], na.rm=TRUE))
+bestBySize_CIC <- sapply(sz, function(m) min(res_df$CICOMP[res_df$Size==m], na.rm=TRUE))
+
+matplot(sz, cbind(bestBySize_AIC, bestBySize_BIC, bestBySize_CIC), type="b", pch=1:3, lty=1,
+        xlab="Subset size", ylab="Best value at size", col=c("blue","red","green"))
+legend("topright", legend=c("AIC","BIC","CICOMP"), col=c("blue","red","green"), pch=1:3)
+
+```
+
+Table of information criteria
+
+```{r}
+library(dplyr)
+library(stringr)
+
+topN <- 3
+
+# Combine top-N subsets for each criterion
+TopAll <- bind_rows(
+  TopAIC %>% slice_min(AIC, n = topN) %>% mutate(Criterion="AIC", Information_Criteria=AIC),
+  TopBIC %>% slice_min(BIC, n = topN) %>% mutate(Criterion="BIC", Information_Criteria=BIC),
+  TopCIC %>% slice_min(CICOMP, n = topN) %>% mutate(Criterion="CICOMP", Information_Criteria=CICOMP)
+)
+
+# Clean up variable names and handle intercept-only models
+TopAll <- TopAll %>%
+  rowwise() %>%
+  mutate(Variables = if (Indices == "" | is.na(Indices)) "(Intercept only)" else Indices) %>%
+  select(Criterion, Size, Variables, Information_Criteria)
+
+# Print table
+print(TopAll, n = nrow(TopAll))
+
+```
+
+### Discussion and Conclusions
+
+Across all three information criteria (AIC, SBC, and CICOMP), the optimal model size was consistently identified as containing nine out of ten predictor variables. This agreement suggests that including these nine variables captures the majority of the explainable variance in the dataset, while adding a tenth predictor does not yield meaningful improvement in model performance. In practical terms, the model with nine predictors achieves a balance between explanatory power and parsimony.
+
+The AIC and SBC scores were nearly identical and substantially more negative than the CICOMP score. This difference arises because AIC and SBC both penalize model complexity primarily based on the number of parameters, whereas CICOMP (Covariance Complexity Information Criterion) imposes an additional penalty related to the structure of the covariance matrix of the model residuals. In other words, CICOMP explicitly accounts for the *interdependence* among model parameters rather than just their count.
+
+The fact that the CICOMP score was considerably less negative (i.e., closer to zero) indicates that the model’s residual covariance matrix is relatively complex. This suggests that the predictors may exhibit substantial collinearity or shared information, leading to a more intricate covariance structure. In time-series contexts, this can also reflect autocorrelation or cross-dependence among predictors and response variables over time.
+
+Interestingly, AIC—which typically applies the least severe penalty—produced the most negative criterion value, while CICOMP—which applies a stronger, structure-based penalty—produced a substantially greater (less negative) value. Although direct numerical comparison among information criteria is not meaningful because they are based on different scales and formulations, this contrast underscores how differently each metric balances goodness-of-fit versus structural simplicity.
+
+While all three criteria favored a nine-variable model, the discrepancy in magnitude between AIC/SBC and CICOMP emphasizes that the selected model, though statistically optimal in fit, may still possess a complex covariance structure. This complexity may be driven by correlations among chemical parameters (e.g., major cations and dissolved carbon species), which often covary in natural systems and thus contribute to multicollinearity.
+
+Model parsimony refers to achieving the simplest model that adequately explains the data. In this case, all three selection criteria converging at nine predictors supports the notion that additional predictors do not enhance model explanatory power and may even contribute unnecessary complexity. However, covariance complexity—as measured by CICOMP—reveals that even a parsimonious model can exhibit substantial structural interdependence if predictor variables are correlated.
+
+In essence, covariance complexity quantifies the degree of collinearity and parameter interdependence within the model. A high covariance complexity value implies that parameter estimates are not statistically independent, meaning that changes in one predictor’s effect are partly compensated by others. This reduces interpretability and may limit model generalization to new data. Therefore, while the nine-variable model is optimal in terms of information criteria, it may still benefit from dimensionality reduction (e.g., PCA) or diagnostic evaluation (e.g., VIF analysis) to ensure model stability.
+
+From a scientific perspective, this structural complexity is likely reflecting the biogeochemical coupling among predictors (e.g., pH–cation–DOC–DIC relationships) rather than mere statistical redundancy. Thus, the observed covariance complexity is not necessarily problematic—it may represent the natural interconnectivity of processes in the system being modeled. Still, acknowledging and quantifying this complexity helps clarify that while the model performs well statistically, interpretability and mechanistic inference must be approached with caution.
